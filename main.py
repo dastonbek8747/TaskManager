@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
+from uuid import UUID, uuid4
 import json
 from datetime import date
-from uuid import uuid4, UUID
 
 
 @dataclass
@@ -9,10 +9,10 @@ class Task:
     title: str
     topshirish_muddati: date
     ustuvorligi: str
-    status: bool
-    update_date: date
-    yaratilgan_vaqti: date = field(default_factory=date.today)
+    status: bool = field(default_factory=False)
+    update_data: date = field(default_factory=date.today)
     id: UUID = field(default_factory=uuid4)
+    yaratilgan_vaqti: date = field(default_factory=date.today)
 
 
 class TaskManager:
@@ -21,45 +21,45 @@ class TaskManager:
 
     def add_task(self, task: Task):
         self.tasks.append(task)
-        return {"message": "Task Added"}
 
-    def delete_task(self, task_id: str):
-        for i in self.tasks:
-            if i.id == task_id:
-                self.tasks.remove(i)
-                return {"message": "Task Removed"}
-        return {"message": "Task Not Found"}
+    def delete_task(self, task_id: UUID):
+        for task in self.tasks:
+            if task.id == task_id:
+                self.tasks.remove(task)
+                return {"message": "Deleted task"}
+        return {"message": "Task not found"}
 
-    def complete_task(self, task_id: str):
-        for i in self.tasks:
-            if i.id == task_id:
-                i.status = True
-                i.update_date = date.today()
-                return {"message": "Task Updated"}
+    def compelete_task(self, task_id: UUID):
+        for task in self.tasks:
+            if task.id == task_id:
+                task.status = True
+                return {"message": "Compelete task"}
 
-        return {"message": "Task Not Found"}
+        return {"message": "Task not found"}
 
-    def filter_by_ustuvorligi(self, ustuvorligi: str):
-        return {"tasks": (i for i in self.tasks if i.ustuvorligi == ustuvorligi)}
+    def ustuvorlik_boyicha_filterlash(self, ustuvorligi: str):
+        return {"tasks": [task for task in self.tasks if task.ustuvorligi == ustuvorligi]}
 
-    def filter_by_status(self, status: bool):
-        return {"tasks": (i for i in self.tasks if i.status == status)}
+    def status_boyicha_filterlash(self, status: bool):
+        return {"status_tasks": [task for task in self.tasks if task.status == status]}
 
-    def kechikkan_tasks(self):
+    def kechiktirilgan_vazifalar(self):
         today = date.today()
-        return {"kechikan_tasks": [
-            (i, (today - i.topshirish_muddati).days)
-            for i in self.tasks
-            if i.topshirish_muddati and i.topshirish_muddati < today
-
-        ]}
+        return {"kechiktirilgan_vazifalar": [(task, (today - task.topshirish_muddati).days) for task in self.tasks if
+                                             task.topshirish_muddati < today]}
 
     def task_to_dict(self, task: Task):
         return {
-            "id": str(task.id),
+            "id": task.id,
             "title": task.title,
-            "topshirish_muddati": str(task.topshirish_muddati),
-            "ustuvorligi": str(task.ustuvorligi),
-            "status": str(task.status),
-            "update_date": str(task.update_date),
-            "yaratilgan_vaqti": str(task.yaratilgan_vaqti)}
+            "topshirish_muddati": task.topshirish_muddati,
+            "ustuvorligi": task.ustuvorligi,
+            "status": task.status,
+            "yaratilgan_vaqti": task.yaratilgan_vaqti,
+            "update_data": task.update_data
+        }
+
+    def save_json(self, task: Task):
+        with open("tasks.json", "w") as f:
+            json.dump(self.task_to_dict(task), f)
+
