@@ -1,52 +1,95 @@
 import streamlit as st
+import pandas as pd
+from datetime import date
+from main import TaskManager, Priority
 
-if "user_autentifaktsiya" not in st.session_state:
-    st.session_state.user_autentifaktsiya = True
+st.set_page_config(page_title="Vazifalar", page_icon="📋", layout="centered")
 
-if not st.session_state.user_autentifaktsiya:
-    tab1, tab2 = st.tabs(["Saytga Kirish", "Ro'yhatdan o'tish"])
+if "mgr" not in st.session_state:
+    st.session_state.mgr = TaskManager()
 
-    with tab1:
-        st.header("Saytga Kirish")
-        username = st.text_input("username")
-        password = st.text_input("password")
-        button = st.button("Kirish")
+mgr: TaskManager = st.session_state.mgr
 
-    with tab2:
-        st.header("Ro'yhatdan o'tish")
+COLORS = {"Yuqori": "🔴", "O'rta": "🟡", "Past": "🟢"}
 
-        username_register = st.text_input("username", key="username_register")
-        email_register = st.text_input("Email", key="email_register")
-        password_register = st.text_input("password", key="password_register")
-        button = st.button("Ro'yhatdan o'tish", key="button")
+st.title("📋 Vazifalar")
 
-else:
+page = st.sidebar.radio("", ["Ro'yxat", "Qo'shish", "Statistika"])
 
-    with st.sidebar.header("Bugungi  Vazifalar"):
-        yuqori, orta, past = st.sidebar.tabs(["Yuqori", "O'rta", "Past"])
-        with yuqori:
-            st.header("Yuqori darajadagi vazifalar")
-        with orta:
-            st.header("O'rta darajagi vazifalar")
-        with past:
-            st.header("Past darajagi vazifalar")
+if page == "Ro'yxat":
+    stats = mgr.stats()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Jami", stats["total"])
+    c2.metric("Bajarildi", stats["done"])
+    c3.metric("Kechikdi", stats["overdue"])
 
-    tab1, tab2,tab3 = st.tabs(["Vazifa qoshish", "Vazifani o'chirish","Muddati tugagan vazifalar"])
-    with tab1:
-        st.header("Bugun uchun yangi vazifalar")
-        task_title = st.text_input("Vazifa nomi")
-        topshirish_muddati = st.date_input("Topshirish vaqti ")
-        task_ustuvorligi = st.selectbox("Vazifa ustuvorligi", ("Yuqori", "O'rta", "Past"))
-        task_status = st.selectbox("Vazifa bajarilganligi", ("Bajarilmadi", "Bajarildi"))
+    if mgr.tasks:
+        st.progress(stats["done"] / stats["total"] if stats["total"] else 0)
 
-        vazifa_submit_btn = st.button("Vazifani qo'shish")
-        if vazifa_submit_btn:
-            st.snow()
-    with tab2:
-        kechagi, bugungi, oldingilari = st.tabs(["Kechagi", "Bugungi", "Oldingilari"])
-        with kechagi:
-            st.header("Mavjud vazifalar")
-            for i in range(10):
-                st.checkbox(f"Vazifa nomalari chiqib keladi {i}")
-    with tab3:
-        st.header("Mavjud vazifalar")
+    st.divider()
+
+    overdue_ids = {t.id for t, _ in mgr.overdue_tasks()}
+    rows = [
+        {
+            "Vazifa":      t.title,
+            "Deadline":    str(t.deadline),
+            "Ustuvorlik":  COLORS[t.priority.value] + " " + t.priority.value,
+            "Status":      "✅" if t.status else ("🔴 Kechikdi" if t.id in overdue_ids else "⏳ Faol"),
+            "_id":         str(t.id),
+        }
+        for t in mgr.tasks
+    ]
+
+    if not rows:
+        st.info("Hali vazifa yo'q.")
+    else:
+        st.dataframe(
+            pd.DataFrame(rows).drop(columns=["_id"]),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.divider()
+        options = {f"{t.title}": t.id for t in mgr.tasks}
+        selected = st.selectbox("Vazifa tanlang", list(options.keys()))
+        task_id  = options[selected]
+
+        col1, col2 = st.columns(2)
+        if col1.button("✅ Bajarildi", use_container_width=True):
+            res = mgr.complete_task(task_id)
+            (st.success if res["ok"] else st.error)(res["message"])
+            st.rerun()
+        if col2.button("🗑️ O'chirish", use_container_width=True):
+            res = mgr.delete_task(task_id)
+            (st.success if res["ok"] else st.error)(res["message"])
+            st.rerun()
+
+elif page == "Qo'shish":
+    st.subheader("Yangi vazifa")
+    with st.form("form", clear_on_submit=True):
+        title    = st.text_input("Vazifa nomi")
+        deadline = st.date_input("Deadline", min_value=date.today())
+        priority = st.selectbox("Ustuvorlik", [p.value for p in Priority])
+        ok = st.form_submit_button("Qo'shish", use_container_width=True, type="primary")
+
+    if ok:
+        if not title.strip():
+            st.error("Nom bo'sh bo'lmasin!")
+        else:
+            mgr.add_task(title.strip(), deadline, Priority(priority))
+            st.success(f"**{title}** qo'shildi!")
+            st.balloons()
+
+elif page == "Statistika":
+    st.subheader("Statistika")
+    stats = mgr.stats()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Jami",      stats["total"])
+    c2.metric("Bajarildi", stats["done"])
+    c3.metric("Faol",      stats["active"])
+    c4.metric("Kechikdi",  stats["overdue"])
+
+    if mgr.tasks:
+        st.divider()
+        pri_data = {p.value: len(list(mgr.filter_by_priority(p))) for p in Priority}
+        st.bar_chart(pri_data)
