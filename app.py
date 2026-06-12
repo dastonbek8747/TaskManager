@@ -1,7 +1,7 @@
 import streamlit as st
 
 if "user_autentifaktsiya" not in st.session_state:
-    st.session_state.user_autentifaktsiya = False
+    st.session_state.user_autentifaktsiya = True
 
 if not st.session_state.user_autentifaktsiya:
     tab1, tab2 = st.tabs(["Saytga Kirish", "Ro'yhatdan o'tish"])
@@ -31,7 +31,7 @@ else:
         with past:
             st.header("Past darajagi vazifalar")
 
-    tab1, tab2 = st.tabs(["Vazifa qoshish", "Vazifani o'chirish"])
+    tab1, tab2,tab3 = st.tabs(["Vazifa qoshish", "Vazifani o'chirish","Muddati tugagan vazifalar"])
     with tab1:
         st.header("Bugun uchun yangi vazifalar")
         task_title = st.text_input("Vazifa nomi")
@@ -48,3 +48,5 @@ else:
             st.header("Mavjud vazifalar")
             for i in range(10):
                 st.checkbox(f"Vazifa nomalari chiqib keladi {i}")
+    with tab3:
+        st.header("Mavjud vazifalar")
